@@ -64,17 +64,16 @@ Route::prefix('admin')
         Route::apiResource('categories', CategoryController::class);
         Route::patch('/categories/{category}/toggle', [CategoryController::class, 'toggle']);
 
-        // Restaurants
-        Route::get('/restaurants/all', [RestaurantController::class, 'all']);
-        Route::apiResource('restaurants', RestaurantController::class);
-        Route::patch('/restaurants/{restaurant}/toggle', [RestaurantController::class, 'toggle']);
-        Route::patch('/restaurants/{restaurant}/toggle-featured', [RestaurantController::class, 'toggleFeatured']);
+        // Restaurant Settings (Single Restaurant)
+        Route::get('/restaurant', [RestaurantController::class, 'show']);
+        Route::post('/restaurant', [RestaurantController::class, 'store']);
+        Route::put('/restaurant', [RestaurantController::class, 'update']);
+        Route::patch('/restaurant/toggle', [RestaurantController::class, 'toggle']);
 
         // Menu Items
         Route::apiResource('menu-items', MenuItemController::class);
         Route::patch('/menu-items/{menuItem}/toggle', [MenuItemController::class, 'toggle']);
         Route::patch('/menu-items/{menuItem}/toggle-popular', [MenuItemController::class, 'togglePopular']);
-        Route::get('/restaurants/{restaurant}/menu-items', [MenuItemController::class, 'byRestaurant']);
 
         // Users
         Route::apiResource('users', UserController::class);
@@ -97,9 +96,8 @@ Route::prefix('admin')
 */
 
 Route::get('/categories', [PublicController::class, 'categories']);
-Route::get('/restaurants', [PublicController::class, 'restaurants']);
-Route::get('/restaurants/{restaurant}', [PublicController::class, 'restaurant']);
-Route::get('/restaurants/{restaurant}/menu-items', [PublicController::class, 'menuItems']);
-Route::get('/featured-restaurants', [PublicController::class, 'featuredRestaurants']);
-Route::get('/popular-restaurants', [PublicController::class, 'popularRestaurants']);
+Route::get('/restaurant', [PublicController::class, 'restaurant']);
+Route::get('/menu-items', [PublicController::class, 'menuItems']);
+Route::get('/menu-items/{menuItem}', [PublicController::class, 'menuItem']);
+Route::get('/popular-items', [PublicController::class, 'popularItems']);
 Route::get('/search', [PublicController::class, 'search']);

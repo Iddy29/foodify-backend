@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\User;
-use App\Models\Restaurant;
 use Illuminate\Database\Seeder;
 
 class OrderSeeder extends Seeder
@@ -15,10 +15,10 @@ class OrderSeeder extends Seeder
     public function run(): void
     {
         $users = User::where('role', 'customer')->get();
-        $restaurants = Restaurant::all();
+        $menuItems = MenuItem::all();
 
-        if ($users->isEmpty() || $restaurants->isEmpty()) {
-            $this->command->info('No users or restaurants found. Skipping order seeding.');
+        if ($users->isEmpty() || $menuItems->isEmpty()) {
+            $this->command->info('No users or menu items found. Skipping order seeding.');
             return;
         }
 
@@ -29,15 +29,14 @@ class OrderSeeder extends Seeder
             $orderCount = rand(2, 4);
             
             for ($i = 0; $i < $orderCount; $i++) {
-                $restaurant = $restaurants->random();
                 $status = $statuses[array_rand($statuses)];
                 
-                // Create order items from restaurant menu
-                $menuItems = $restaurant->menuItems()->take(3)->get();
+                // Create order items from menu
+                $selectedItems = $menuItems->random(rand(1, 3));
                 $items = [];
                 $subtotal = 0;
 
-                foreach ($menuItems as $menuItem) {
+                foreach ($selectedItems as $menuItem) {
                     $quantity = rand(1, 3);
                     $sizePrice = is_array($menuItem->sizes) && count($menuItem->sizes) > 0 
                         ? $menuItem->sizes[0]['price'] 
@@ -63,7 +62,7 @@ class OrderSeeder extends Seeder
                     $subtotal += $sizePrice * $quantity;
                 }
 
-                $deliveryFee = $restaurant->delivery_fee;
+                $deliveryFee = 2.99; // Fixed delivery fee for single restaurant
                 $tax = $subtotal * 0.08; // 8% tax
                 $total = $subtotal + $deliveryFee + $tax;
 
@@ -71,7 +70,6 @@ class OrderSeeder extends Seeder
 
                 Order::create([
                     'user_id' => $user->id,
-                    'restaurant_id' => $restaurant->id,
                     'order_number' => 'ORD-' . strtoupper(uniqid()),
                     'items' => $items,
                     'subtotal' => $subtotal,

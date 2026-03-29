@@ -17,7 +17,7 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Order::query()->with(['user:id,name,email', 'restaurant:id,name']);
+        $query = Order::query()->with('user:id,name,email');
 
         // Filter by status
         if ($request->has('status')) {
@@ -27,11 +27,6 @@ class OrderController extends Controller
         // Filter by user
         if ($request->has('user_id')) {
             $query->where('user_id', $request->user_id);
-        }
-
-        // Filter by restaurant
-        if ($request->has('restaurant_id')) {
-            $query->where('restaurant_id', $request->restaurant_id);
         }
 
         // Search by order number
@@ -95,7 +90,7 @@ class OrderController extends Controller
      */
     public function show(Order $order): JsonResponse
     {
-        $order->load(['user:id,name,email,phone', 'restaurant:id,name,address,phone']);
+        $order->load('user:id,name,email,phone');
 
         return response()->json($order);
     }
@@ -128,7 +123,7 @@ class OrderController extends Controller
 
             return response()->json([
                 'message' => 'Order status updated successfully.',
-                'order' => $order->fresh(['user:id,name,email', 'restaurant:id,name']),
+                'order' => $order->fresh('user:id,name,email'),
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -161,7 +156,7 @@ class OrderController extends Controller
     {
         $limit = $request->get('limit', 10);
 
-        $orders = Order::with(['user:id,name,email', 'restaurant:id,name'])
+        $orders = Order::with('user:id,name,email')
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get();

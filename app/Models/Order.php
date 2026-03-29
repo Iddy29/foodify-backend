@@ -12,7 +12,6 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
-        'restaurant_id',
         'order_number',
         'items',
         'subtotal',
@@ -40,21 +39,5 @@ class Order extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function restaurant(): BelongsTo
-    {
-        return $this->belongsTo(Restaurant::class);
-    }
-
-    protected static function boot(): void
-    {
-        parent::boot();
-
-        static::creating(function ($order) {
-            if (empty($order->order_number)) {
-                $order->order_number = 'ORD-' . strtoupper(uniqid());
-            }
-        });
     }
 }

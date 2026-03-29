@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MenuItem;
-use App\Models\Restaurant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -37,6 +36,7 @@ class MenuItemController extends Controller
             }
         }
     }
+
     /**
      * List all menu items.
      *
@@ -44,7 +44,7 @@ class MenuItemController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = MenuItem::query()->with('restaurant:id,name');
+        $query = MenuItem::query();
 
         if ($request->has('search')) {
             $search = $request->search;
@@ -52,10 +52,6 @@ class MenuItemController extends Controller
                 $q->where('name', 'like', '%' . $search . '%')
                   ->orWhere('description', 'like', '%' . $search . '%');
             });
-        }
-
-        if ($request->has('restaurant_id')) {
-            $query->where('restaurant_id', $request->restaurant_id);
         }
 
         if ($request->has('category')) {
@@ -70,8 +66,7 @@ class MenuItemController extends Controller
             $query->where('popular', $request->boolean('popular'));
         }
 
-        $menuItems = $query->orderBy('restaurant_id')
-            ->orderBy('category')
+        $menuItems = $query->orderBy('category')
             ->orderBy('name')
             ->paginate(20);
 
@@ -87,7 +82,6 @@ class MenuItemController extends Controller
     {
         try {
             $validated = $request->validate([
-                'restaurant_id' => 'required|exists:restaurants,id',
                 'name' => 'required|string|max:255',
                 'description' => 'required|string|max:1000',
                 'price' => 'required|numeric|min:0',
@@ -108,7 +102,6 @@ class MenuItemController extends Controller
             }
 
             $menuItem = MenuItem::create($validated);
-            $menuItem->load('restaurant:id,name');
 
             return response()->json([
                 'message' => 'Menu item created successfully.',
@@ -129,8 +122,6 @@ class MenuItemController extends Controller
      */
     public function show(MenuItem $menuItem): JsonResponse
     {
-        $menuItem->load('restaurant:id,name');
-
         return response()->json($menuItem);
     }
 
@@ -143,7 +134,6 @@ class MenuItemController extends Controller
     {
         try {
             $validated = $request->validate([
-                'restaurant_id' => 'required|exists:restaurants,id',
                 'name' => 'required|string|max:255',
                 'description' => 'required|string|max:1000',
                 'price' => 'required|numeric|min:0',
@@ -166,7 +156,6 @@ class MenuItemController extends Controller
             }
 
             $menuItem->update($validated);
-            $menuItem->load('restaurant:id,name');
 
             return response()->json([
                 'message' => 'Menu item updated successfully.',
@@ -225,20 +214,5 @@ class MenuItemController extends Controller
             'message' => 'Menu item popular status updated.',
             'popular' => $menuItem->popular,
         ]);
-    }
-
-    /**
-     * Get menu items by restaurant.
-     *
-     * GET /api/admin/restaurants/{restaurant}/menu-items
-     */
-    public function byRestaurant(Restaurant $restaurant): JsonResponse
-    {
-        $menuItems = $restaurant->menuItems()
-            ->orderBy('category')
-            ->orderBy('name')
-            ->get();
-
-        return response()->json($menuItems);
     }
 }

@@ -36,60 +36,37 @@ class RestaurantController extends Controller
             }
         }
     }
+
     /**
-     * List all restaurants.
+     * Get the restaurant (single restaurant app).
      *
-     * GET /api/admin/restaurants
+     * GET /api/admin/restaurant
      */
-    public function index(Request $request): JsonResponse
+    public function show(): JsonResponse
     {
-        $query = Restaurant::query();
+        $restaurant = Restaurant::first();
 
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('address', 'like', '%' . $search . '%')
-                  ->orWhereJsonContains('cuisine', $search);
-            });
+        if (! $restaurant) {
+            return response()->json(['message' => 'Restaurant not configured.'], 404);
         }
 
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
-
-        if ($request->has('featured')) {
-            $query->where('featured', $request->boolean('featured'));
-        }
-
-        $restaurants = $query->withCount('menuItems')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
-
-        return response()->json($restaurants);
+        return response()->json($restaurant);
     }
 
     /**
-     * Get all restaurants (for dropdowns).
+     * Create the restaurant (if not exists).
      *
-     * GET /api/admin/restaurants/all
-     */
-    public function all(): JsonResponse
-    {
-        $restaurants = Restaurant::where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'image']);
-
-        return response()->json($restaurants);
-    }
-
-    /**
-     * Store a new restaurant.
-     *
-     * POST /api/admin/restaurants
+     * POST /api/admin/restaurant
      */
     public function store(Request $request): JsonResponse
     {
+        // Check if restaurant already exists
+        if (Restaurant::exists()) {
+            return response()->json([
+                'message' => 'Restaurant already exists. Use PUT to update.',
+            ], 422);
+        }
+
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
@@ -100,7 +77,7 @@ class RestaurantController extends Controller
                 'delivery_time' => 'required|string|max:50',
                 'delivery_fee' => 'nullable|numeric|min:0',
                 'distance' => 'nullable|string|max:50',
-                'cuisine' => 'required|array',
+                'cuisine' => 'nullable|array',
                 'cuisine.*' => 'string|max:50',
                 'price_range' => 'nullable|string|max:10',
                 'address' => 'required|string|max:500',
@@ -134,26 +111,18 @@ class RestaurantController extends Controller
     }
 
     /**
-     * Get a single restaurant.
+     * Update the restaurant.
      *
-     * GET /api/admin/restaurants/{id}
+     * PUT /api/admin/restaurant
      */
-    public function show(Restaurant $restaurant): JsonResponse
+    public function update(Request $request): JsonResponse
     {
-        $restaurant->load(['menuItems' => function ($query) {
-            $query->orderBy('category')->orderBy('name');
-        }]);
+        $restaurant = Restaurant::first();
 
-        return response()->json($restaurant);
-    }
+        if (! $restaurant) {
+            return response()->json(['message' => 'Restaurant not found.'], 404);
+        }
 
-    /**
-     * Update a restaurant.
-     *
-     * PUT /api/admin/restaurants/{id}
-     */
-    public function update(Request $request, Restaurant $restaurant): JsonResponse
-    {
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
@@ -164,7 +133,7 @@ class RestaurantController extends Controller
                 'delivery_time' => 'required|string|max:50',
                 'delivery_fee' => 'nullable|numeric|min:0',
                 'distance' => 'nullable|string|max:50',
-                'cuisine' => 'required|array',
+                'cuisine' => 'nullable|array',
                 'cuisine.*' => 'string|max:50',
                 'price_range' => 'nullable|string|max:10',
                 'address' => 'required|string|max:500',
@@ -200,50 +169,23 @@ class RestaurantController extends Controller
     }
 
     /**
-     * Delete a restaurant.
-     *
-     * DELETE /api/admin/restaurants/{id}
-     */
-    public function destroy(Restaurant $restaurant): JsonResponse
-    {
-        // Delete associated images
-        $this->deleteOldImage($restaurant->image);
-        $this->deleteOldImage($restaurant->cover_image);
-        
-        $restaurant->delete();
-
-        return response()->json([
-            'message' => 'Restaurant deleted successfully.',
-        ]);
-    }
-
-    /**
      * Toggle restaurant active status.
      *
-     * PATCH /api/admin/restaurants/{id}/toggle
+     * PATCH /api/admin/restaurant/toggle
      */
-    public function toggle(Restaurant $restaurant): JsonResponse
+    public function toggle(): JsonResponse
     {
+        $restaurant = Restaurant::first();
+
+        if (! $restaurant) {
+            return response()->json(['message' => 'Restaurant not found.'], 404);
+        }
+
         $restaurant->update(['is_active' => ! $restaurant->is_active]);
 
         return response()->json([
             'message' => 'Restaurant status updated.',
             'is_active' => $restaurant->is_active,
-        ]);
-    }
-
-    /**
-     * Toggle restaurant featured status.
-     *
-     * PATCH /api/admin/restaurants/{id}/toggle-featured
-     */
-    public function toggleFeatured(Restaurant $restaurant): JsonResponse
-    {
-        $restaurant->update(['featured' => ! $restaurant->featured]);
-
-        return response()->json([
-            'message' => 'Restaurant featured status updated.',
-            'featured' => $restaurant->featured,
         ]);
     }
 }

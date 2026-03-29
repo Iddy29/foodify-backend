@@ -52,7 +52,7 @@ class AdminSeeder extends Seeder
             Category::create($categoryData);
         }
 
-        // Create sample restaurant
+        // Create single restaurant
         $restaurant = Restaurant::create([
             'name' => 'Bella Italia',
             'image' => 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&h=400&fit=crop',
@@ -71,7 +71,7 @@ class AdminSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // Create sample menu items
+        // Create sample menu items (no restaurant_id needed)
         $menuItems = [
             [
                 'name' => 'Margarita Pizza',
@@ -120,12 +120,11 @@ class AdminSeeder extends Seeder
         ];
 
         foreach ($menuItems as $menuItemData) {
-            $menuItemData['restaurant_id'] = $restaurant->id;
             MenuItem::create($menuItemData);
         }
 
         $this->command->info('Admin user created: admin@foodify.com / password');
         $this->command->info('Customer user created: customer@foodify.com / password');
-        $this->command->info('Sample restaurant and menu items created.');
+        $this->command->info('Single restaurant and menu items created.');
     }
 }
