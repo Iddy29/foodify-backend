@@ -6,10 +6,36 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class CategoryController extends Controller
 {
+    /**
+     * Store uploaded image and return the URL.
+     */
+    private function storeImage(?\Illuminate\Http\UploadedFile $file, string $directory): ?string
+    {
+        if (!$file) {
+            return null;
+        }
+
+        $path = $file->store($directory, 'public');
+        return Storage::url($path);
+    }
+
+    /**
+     * Delete old image if exists.
+     */
+    private function deleteOldImage(?string $imageUrl): void
+    {
+        if ($imageUrl) {
+            $path = str_replace('/storage/', '', parse_url($imageUrl, PHP_URL_PATH) ?? $imageUrl);
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+    }
     /**
      * List all categories.
      *
@@ -58,10 +84,15 @@ class CategoryController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255|unique:categories',
                 'icon' => 'nullable|string|max:50',
-                'image' => 'nullable|string|max:1000',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
                 'is_active' => 'boolean',
                 'sort_order' => 'integer|min:0',
             ]);
+
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                $validated['image'] = $this->storeImage($request->file('image'), 'categories');
+            }
 
             $category = Category::create($validated);
 
@@ -98,10 +129,16 @@ class CategoryController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255|unique:categories,name,' . $category->id,
                 'icon' => 'nullable|string|max:50',
-                'image' => 'nullable|string|max:1000',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
                 'is_active' => 'boolean',
                 'sort_order' => 'integer|min:0',
             ]);
+
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                $this->deleteOldImage($category->image);
+                $validated['image'] = $this->storeImage($request->file('image'), 'categories');
+            }
 
             $category->update($validated);
 
@@ -124,6 +161,9 @@ class CategoryController extends Controller
      */
     public function destroy(Category $category): JsonResponse
     {
+        // Delete associated image
+        $this->deleteOldImage($category->image);
+        
         $category->delete();
 
         return response()->json([

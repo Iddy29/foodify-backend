@@ -6,10 +6,36 @@ use App\Http\Controllers\Controller;
 use App\Models\Restaurant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class RestaurantController extends Controller
 {
+    /**
+     * Store uploaded image and return the URL.
+     */
+    private function storeImage(?\Illuminate\Http\UploadedFile $file, string $directory): ?string
+    {
+        if (!$file) {
+            return null;
+        }
+
+        $path = $file->store($directory, 'public');
+        return Storage::url($path);
+    }
+
+    /**
+     * Delete old image if exists.
+     */
+    private function deleteOldImage(?string $imageUrl): void
+    {
+        if ($imageUrl) {
+            $path = str_replace('/storage/', '', parse_url($imageUrl, PHP_URL_PATH) ?? $imageUrl);
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+    }
     /**
      * List all restaurants.
      *
@@ -67,8 +93,8 @@ class RestaurantController extends Controller
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'image' => 'nullable|string|max:1000',
-                'cover_image' => 'nullable|string|max:1000',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+                'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
                 'rating' => 'nullable|numeric|min:0|max:5',
                 'review_count' => 'nullable|integer|min:0',
                 'delivery_time' => 'required|string|max:50',
@@ -84,6 +110,14 @@ class RestaurantController extends Controller
                 'menu_categories.*' => 'string|max:50',
                 'is_active' => 'boolean',
             ]);
+
+            // Handle image uploads
+            if ($request->hasFile('image')) {
+                $validated['image'] = $this->storeImage($request->file('image'), 'restaurants');
+            }
+            if ($request->hasFile('cover_image')) {
+                $validated['cover_image'] = $this->storeImage($request->file('cover_image'), 'restaurants/covers');
+            }
 
             $restaurant = Restaurant::create($validated);
 
@@ -123,8 +157,8 @@ class RestaurantController extends Controller
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'image' => 'nullable|string|max:1000',
-                'cover_image' => 'nullable|string|max:1000',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+                'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
                 'rating' => 'nullable|numeric|min:0|max:5',
                 'review_count' => 'nullable|integer|min:0',
                 'delivery_time' => 'required|string|max:50',
@@ -140,6 +174,16 @@ class RestaurantController extends Controller
                 'menu_categories.*' => 'string|max:50',
                 'is_active' => 'boolean',
             ]);
+
+            // Handle image uploads
+            if ($request->hasFile('image')) {
+                $this->deleteOldImage($restaurant->image);
+                $validated['image'] = $this->storeImage($request->file('image'), 'restaurants');
+            }
+            if ($request->hasFile('cover_image')) {
+                $this->deleteOldImage($restaurant->cover_image);
+                $validated['cover_image'] = $this->storeImage($request->file('cover_image'), 'restaurants/covers');
+            }
 
             $restaurant->update($validated);
 
@@ -162,6 +206,10 @@ class RestaurantController extends Controller
      */
     public function destroy(Restaurant $restaurant): JsonResponse
     {
+        // Delete associated images
+        $this->deleteOldImage($restaurant->image);
+        $this->deleteOldImage($restaurant->cover_image);
+        
         $restaurant->delete();
 
         return response()->json([

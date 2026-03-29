@@ -7,10 +7,36 @@ use App\Models\MenuItem;
 use App\Models\Restaurant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class MenuItemController extends Controller
 {
+    /**
+     * Store uploaded image and return the path.
+     */
+    private function storeImage(?\Illuminate\Http\UploadedFile $file, string $directory): ?string
+    {
+        if (!$file) {
+            return null;
+        }
+
+        $path = $file->store($directory, 'public');
+        return Storage::url($path);
+    }
+
+    /**
+     * Delete old image if exists.
+     */
+    private function deleteOldImage(?string $imageUrl): void
+    {
+        if ($imageUrl) {
+            $path = str_replace('/storage/', '', parse_url($imageUrl, PHP_URL_PATH) ?? $imageUrl);
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+    }
     /**
      * List all menu items.
      *
@@ -65,7 +91,7 @@ class MenuItemController extends Controller
                 'name' => 'required|string|max:255',
                 'description' => 'required|string|max:1000',
                 'price' => 'required|numeric|min:0',
-                'image' => 'nullable|string|max:1000',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
                 'category' => 'required|string|max:100',
                 'ingredients' => 'nullable|array',
                 'ingredients.*' => 'string|max:100',
@@ -75,6 +101,11 @@ class MenuItemController extends Controller
                 'popular' => 'boolean',
                 'is_active' => 'boolean',
             ]);
+
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                $validated['image'] = $this->storeImage($request->file('image'), 'menu-items');
+            }
 
             $menuItem = MenuItem::create($validated);
             $menuItem->load('restaurant:id,name');
@@ -116,7 +147,7 @@ class MenuItemController extends Controller
                 'name' => 'required|string|max:255',
                 'description' => 'required|string|max:1000',
                 'price' => 'required|numeric|min:0',
-                'image' => 'nullable|string|max:1000',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
                 'category' => 'required|string|max:100',
                 'ingredients' => 'nullable|array',
                 'ingredients.*' => 'string|max:100',
@@ -126,6 +157,13 @@ class MenuItemController extends Controller
                 'popular' => 'boolean',
                 'is_active' => 'boolean',
             ]);
+
+            // Handle image upload
+            if ($request->hasFile('image')) {
+                // Delete old image
+                $this->deleteOldImage($menuItem->image);
+                $validated['image'] = $this->storeImage($request->file('image'), 'menu-items');
+            }
 
             $menuItem->update($validated);
             $menuItem->load('restaurant:id,name');
@@ -149,6 +187,9 @@ class MenuItemController extends Controller
      */
     public function destroy(MenuItem $menuItem): JsonResponse
     {
+        // Delete associated image
+        $this->deleteOldImage($menuItem->image);
+        
         $menuItem->delete();
 
         return response()->json([
